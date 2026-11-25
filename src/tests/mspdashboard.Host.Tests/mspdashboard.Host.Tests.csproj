@@ -25,9 +25,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Host\mspdashboard.Host\mspdashboard.Host.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Core\mspdashboard.Core\mspdashboard.Core.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Identity\mspdashboard.Identity\mspdashboard.Identity.csproj" />
+    <ProjectReference Include="..\..\Host\mspdashboard.Host\mspdashboard.Host.csproj" />
+    <ProjectReference Include="..\..\Modules\Core\mspdashboard.Core\mspdashboard.Core.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\mspdashboard.Identity\mspdashboard.Identity.csproj" />
   </ItemGroup>
 
 </Project>
