@@ -40,8 +40,7 @@ public sealed class AuthApiClient {
         }
 
         if (!response.IsSuccessStatusCode) {
-            var body = await response.Content.ReadAsStringAsync();
-            return (null, string.IsNullOrWhiteSpace(body) ? "Login failed." : body, false);
+            return (null, await ProblemDetailsReader.ReadMessageAsync(response, "Login failed."), false);
         }
 
         var payload = await response.Content.ReadFromJsonAsync<LoginResponseDto>();
@@ -78,16 +77,7 @@ public sealed class AuthApiClient {
             return (payload?.User, null);
         }
 
-        return (null, await ReadErrorAsync(response) ?? "Setup failed.");
-    }
-
-    private static async Task<string?> ReadErrorAsync(HttpResponseMessage response) {
-        try {
-            var body = await response.Content.ReadFromJsonAsync<ApiErrorDto>();
-            return string.IsNullOrWhiteSpace(body?.Error) ? null : body.Error;
-        } catch (Exception) {
-            return null;
-        }
+        return (null, await ProblemDetailsReader.ReadMessageAsync(response, "Setup failed."));
     }
 }
 
@@ -110,8 +100,4 @@ public sealed class LoginResponseDto {
 
 public sealed class SetupStatusDto {
     public bool SetupRequired { get; set; }
-}
-
-public sealed class ApiErrorDto {
-    public string? Error { get; set; }
 }

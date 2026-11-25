@@ -1,15 +1,31 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
 using mspdashboard.Core.Data;
 using mspdashboard.Core.Entities;
 using mspdashboard.Core.Infrastructure;
 using mspdashboard.Identity;
+using mspdashboard.Identity.Infrastructure;
 using Wolverine.Http;
 
 namespace mspdashboard.Identity.Features.Tenants;
 
 public static class CreateTenantHandler {
+    /// <summary>Database-dependent check; request shape is covered by CreateTenantCommandValidator.</summary>
+    public static async Task<ProblemDetails> ValidateAsync(
+        CreateTenantCommand command,
+        ApplicationDbContext dbContext,
+        CancellationToken cancellationToken) {
+        var exists = await dbContext.Tenants
+            .AsNoTracking()
+            .AnyAsync(t => t.Subdomain == command.Subdomain, cancellationToken);
+
+        return exists
+            ? Problems.Conflict($"A tenant with subdomain '{command.Subdomain}' already exists.")
+            : WolverineContinue.NoProblems;
+    }
+
     [Authorize(Policy = AuthorizationPolicies.PlatformAdmin)]
     [WolverinePost("/api/tenants")]
     public static async Task<(TenantCreatedResponse, TenantCreatedEvent)> Handle(
@@ -17,13 +33,6 @@ public static class CreateTenantHandler {
         ApplicationDbContext dbContext,
         IDistributedCache cache,
         CancellationToken cancellationToken) {
-        var existingTenant = await dbContext.Tenants
-            .FirstOrDefaultAsync(t => t.Subdomain == command.Subdomain, cancellationToken);
-
-        if (existingTenant != null) {
-            throw new InvalidOperationException($"Tenant with subdomain '{command.Subdomain}' already exists");
-        }
-
         var tenant = new Tenant {
             Id = Guid.NewGuid(),
             Subdomain = command.Subdomain,

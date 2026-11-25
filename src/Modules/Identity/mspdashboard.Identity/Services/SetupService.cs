@@ -64,15 +64,9 @@ public sealed class SetupService : ISetupService {
             var companyName = request.CompanyName?.Trim() ?? string.Empty;
             var email = request.Email?.Trim() ?? string.Empty;
             var password = request.Password ?? string.Empty;
-            var validationError = Validate(companyName, email, password, out var domain);
-            if (validationError is not null) {
-                return Bad(validationError);
-            }
-
-            var passwordError = await ValidatePasswordAsync(email, password);
-            if (passwordError is not null) {
-                return Bad(passwordError);
-            }
+            // Shape and password policy are checked by CompleteSetupRequestValidator and
+            // CompleteSetupHandler.ValidateAsync before this runs.
+            var domain = email[(email.LastIndexOf('@') + 1)..].Trim().ToLowerInvariant();
 
             return await CreateOrganizationAsync(
                 companyName, email, password, domain, cancellationToken);
@@ -148,7 +142,7 @@ public sealed class SetupService : ISetupService {
         return new SetupCompletion(true, false, false, false, null, response);
     }
 
-    private async Task<string?> ValidatePasswordAsync(string email, string password) {
+    public async Task<string?> ValidatePasswordAsync(string email, string password) {
         var probe = new ApplicationUser { UserName = email, Email = email };
         foreach (var validator in _userManager.PasswordValidators) {
             var valid = await validator.ValidateAsync(_userManager, probe, password);
@@ -205,39 +199,8 @@ public sealed class SetupService : ISetupService {
         return slug;
     }
 
-    private static string? Validate(string companyName, string email, string password, out string domain) {
-        domain = string.Empty;
-        if (companyName.Length == 0) {
-            return "Organization name is required.";
-        }
-
-        if (companyName.Length > 200) {
-            return "Organization name must be 200 characters or fewer.";
-        }
-
-        if (email.Length == 0 || password.Length == 0) {
-            return "Email and password are required.";
-        }
-
-        var at = email.LastIndexOf('@');
-        if (at <= 0 || at == email.Length - 1) {
-            return "Email must include a domain.";
-        }
-
-        domain = email[(at + 1)..].Trim().ToLowerInvariant();
-        if (domain.Length == 0 || domain.Length > 255 || domain.Contains(' ') || domain.Contains('@')) {
-            return "Email must include a domain.";
-        }
-
-        return null;
-    }
-
     private static string JoinErrors(IEnumerable<IdentityError> errors) {
         return string.Join(" ", errors.Select(error => error.Description));
-    }
-
-    private static SetupCompletion Bad(string error) {
-        return new SetupCompletion(false, false, false, true, error, null);
     }
 
     private static SetupCompletion AlreadySetUp() {

@@ -38,15 +38,8 @@ public sealed class SsoAdminService : ISsoAdminService {
         return entity is null ? null : ToDto(entity);
     }
 
-    public async Task<SsoProviderDto?> CreateAsync(
+    public async Task<SsoProviderDto> CreateAsync(
         CreateSsoProviderRequest request, CancellationToken cancellationToken) {
-        if (string.IsNullOrWhiteSpace(request.DisplayName) ||
-            string.IsNullOrWhiteSpace(request.Authority) ||
-            string.IsNullOrWhiteSpace(request.ClientId) ||
-            string.IsNullOrWhiteSpace(request.ClientSecret)) {
-            return null;
-        }
-
         var entity = new TenantSsoProvider {
             Id = Guid.NewGuid(),
             TenantId = _tenantAccessor.Current.TenantId!.Value,
@@ -72,12 +65,6 @@ public sealed class SsoAdminService : ISsoAdminService {
             .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenantId, cancellationToken);
         if (entity is null) {
             return null;
-        }
-
-        if (string.IsNullOrWhiteSpace(request.DisplayName) ||
-            string.IsNullOrWhiteSpace(request.Authority) ||
-            string.IsNullOrWhiteSpace(request.ClientId)) {
-            throw new ArgumentException("DisplayName, Authority, and ClientId are required.");
         }
 
         entity.ProviderType = request.ProviderType;

@@ -12,12 +12,11 @@ public static class LoginHandler {
         IPortalAuthService auth,
         CancellationToken cancellationToken) {
         var result = await auth.LoginAsync(request, cancellationToken);
-        if (result.BadRequest) {
-            return Results.BadRequest(new { error = result.Error });
-        }
-
         if (result.LockedOut) {
-            return Results.Json(new { error = result.Error }, statusCode: StatusCodes.Status423Locked);
+            return Results.Problem(
+                title: "Account locked",
+                detail: result.Error,
+                statusCode: StatusCodes.Status423Locked);
         }
 
         if (!result.Succeeded || result.User is null) {
