@@ -2,6 +2,8 @@
 
 A multi-tenant dashboard for managed service providers. Product site: [mspdashboard.io](https://mspdashboard.io).
 
+See [TESTING.md](TESTING.md) for how we test critical paths and reported issues, and how to run the suite.
+
 The app is built on .NET 10 with:
 
 - A Blazor WebAssembly client (MudBlazor)
@@ -31,6 +33,10 @@ The solution file is `src/mspdashboard.slnx`.
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (see `global.json`; currently 10.0.404, with `rollForward: latestFeature`)
 - PostgreSQL and Redis, or Docker to run them from the compose files
+
+## Tests
+
+The suite covers critical paths and regressions for reported issues, not exhaustive coverage. See [TESTING.md](TESTING.md) to run it and for when to add a test. PostgreSQL and Redis are not required for `dotnet test`.
 
 ## Run locally with Docker
 
