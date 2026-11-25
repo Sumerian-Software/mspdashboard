@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.15" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.15" />
+    <PackageReference Include="WolverineFx" Version="6.64.0" />
+    <PackageReference Include="WolverineFx.Http" Version="6.64.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\mspdashboard.Core\mspdashboard.Core.csproj" />
+    <ProjectReference Include="..\..\Core\mspdashboard.Core.Contracts\mspdashboard.Core.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Shared\mspdashboard.Shared\mspdashboard.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

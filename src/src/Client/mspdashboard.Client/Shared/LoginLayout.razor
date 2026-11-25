@@ -1,0 +1,23 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudMainContent Class="d-flex align-center" Style="min-height:100vh;">
+        <MudContainer MaxWidth="MaxWidth.ExtraSmall">
+            <MudPaper Elevation="2" Class="pa-6">
+                @Body
+            </MudPaper>
+            <MudStack AlignItems="AlignItems.Center" Class="mt-4">
+                <MudLink Href="https://github.com/Sumerian-Software/mspdashboard"
+                         Target="_blank"
+                         Typo="Typo.body2">
+                    Source
+                </MudLink>
+            </MudStack>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>

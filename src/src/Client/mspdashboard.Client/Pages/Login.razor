@@ -1,0 +1,199 @@
+@page "/login"
+@layout LoginLayout
+@using mspdashboard.Client.Auth
+@inject AuthApiClient AuthApi
+@inject PortalAuthStateProvider AuthState
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
+
+<PageTitle>Sign in - MSP Dashboard</PageTitle>
+
+<MudStack Spacing="4">
+    <MudStack Spacing="1">
+        <MudText Typo="Typo.h4">mspdashboard</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Sign in to your customer portal</MudText>
+    </MudStack>
+
+    @if (!string.IsNullOrWhiteSpace(_error)) {
+        <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+    }
+
+    @if (_tenant is null) {
+        <MudTextField @bind-Value="_emailOrSubdomain"
+                      Label="Work email or tenant subdomain"
+                      Variant="Variant.Outlined"
+                      Immediate="true"
+                      OnKeyUp="OnLookupKeyUp"
+                      FullWidth="true" />
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   Disabled="_busy"
+                   OnClick="ResolveTenantAsync">
+            Continue
+        </MudButton>
+    } else {
+        <MudStack Spacing="0">
+            <MudText Typo="Typo.subtitle1">@_tenant.CompanyName</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_tenant.Subdomain</MudText>
+        </MudStack>
+
+        <MudTextField @bind-Value="_email"
+                      Label="Email"
+                      Variant="Variant.Outlined"
+                      InputType="InputType.Email"
+                      FullWidth="true" />
+        <MudTextField @bind-Value="_password"
+                      Label="Password"
+                      Variant="Variant.Outlined"
+                      InputType="InputType.Password"
+                      FullWidth="true"
+                      OnKeyUp="OnLoginKeyUp" />
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   Disabled="_busy"
+                   OnClick="LoginAsync">
+            Sign in
+        </MudButton>
+
+        @if (_tenant.SsoProviders.Count > 0) {
+            <MudDivider />
+            <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary">
+                or continue with
+            </MudText>
+            @foreach (var provider in _tenant.SsoProviders) {
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           FullWidth="true"
+                           Href="@AuthApi.SsoChallengeUrl(provider.Id)"
+                           Target="_self">
+                    @provider.DisplayName
+                </MudButton>
+            }
+        }
+
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   FullWidth="true"
+                   OnClick="ResetTenant">
+            Use a different organization
+        </MudButton>
+    }
+</MudStack>
+
+@code {
+    private string _emailOrSubdomain = string.Empty;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string? _error;
+    private bool _busy;
+    private ResolveTenantDto? _tenant;
+
+    protected override async Task OnInitializedAsync() {
+        var status = await AuthApi.GetSetupStatusAsync();
+        if (status?.SetupRequired == true) {
+            Navigation.NavigateTo("/setup");
+            return;
+        }
+
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        if (query.TryGetValue("error", out var error)) {
+            _error = error.ToString() switch {
+                "sso" => "SSO sign-in failed. Try again or use email and password.",
+                "sso_email" => "Your identity provider did not return an email address.",
+                "sso_tenant" => "Could not determine the tenant for this SSO login.",
+                "sso_create" => "Could not create a local user for this SSO login.",
+                "sso_link" => "Could not link the external login to a local user.",
+                "sso_inactive" => "This account is inactive.",
+                _ => "Sign-in failed."
+            };
+        }
+    }
+
+    private async Task OnLookupKeyUp(KeyboardEventArgs args) {
+        if (args.Key == "Enter") {
+            await ResolveTenantAsync();
+        }
+    }
+
+    private async Task OnLoginKeyUp(KeyboardEventArgs args) {
+        if (args.Key == "Enter") {
+            await LoginAsync();
+        }
+    }
+
+    private async Task ResolveTenantAsync() {
+        _error = null;
+        var value = _emailOrSubdomain.Trim();
+        if (string.IsNullOrWhiteSpace(value)) {
+            _error = "Enter your work email or tenant subdomain.";
+            return;
+        }
+
+        _busy = true;
+        try {
+            string? email = null;
+            string? subdomain = null;
+            if (value.Contains('@')) {
+                email = value;
+                _email = value;
+            } else {
+                subdomain = value.ToLowerInvariant();
+            }
+
+            var resolved = await AuthApi.ResolveTenantAsync(email, subdomain);
+            if (resolved is null) {
+                _error = "No organization matched that email domain or subdomain.";
+                return;
+            }
+
+            _tenant = resolved;
+            await Js.InvokeVoidAsync("sessionStorage.setItem", "tenant_subdomain", resolved.Subdomain);
+        } catch (Exception) {
+            _error = "Could not look up that organization.";
+        } finally {
+            _busy = false;
+        }
+    }
+
+    private async Task LoginAsync() {
+        if (_tenant is null) {
+            return;
+        }
+
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password)) {
+            _error = "Email and password are required.";
+            return;
+        }
+
+        _busy = true;
+        try {
+            var (user, error, _) = await AuthApi.LoginAsync(_email.Trim(), _password, _tenant.Subdomain);
+            if (user is null) {
+                _error = error ?? "Sign-in failed.";
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(user.TenantSubdomain)) {
+                await Js.InvokeVoidAsync("sessionStorage.setItem", "tenant_subdomain", user.TenantSubdomain);
+            }
+
+            AuthState.NotifyLoggedIn(user);
+            Navigation.NavigateTo("/", forceLoad: false);
+        } catch (Exception) {
+            _error = "Sign-in failed.";
+        } finally {
+            _busy = false;
+        }
+    }
+
+    private void ResetTenant() {
+        _tenant = null;
+        _password = string.Empty;
+        _error = null;
+    }
+}

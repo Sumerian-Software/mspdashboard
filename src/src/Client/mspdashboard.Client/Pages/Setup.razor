@@ -1,0 +1,116 @@
+@page "/setup"
+@layout LoginLayout
+@using mspdashboard.Client.Auth
+@inject AuthApiClient AuthApi
+@inject PortalAuthStateProvider AuthState
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
+
+<PageTitle>Set up - MSP Dashboard</PageTitle>
+
+@if (_ready) {
+    <MudStack Spacing="4">
+        <MudStack Spacing="1">
+            <MudText Typo="Typo.h4">Set up</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                Create the organization and the first admin for this instance.
+            </MudText>
+        </MudStack>
+
+        @if (!string.IsNullOrWhiteSpace(_error)) {
+            <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+        }
+
+        <MudTextField @bind-Value="_companyName"
+                      Label="Organization name"
+                      Variant="Variant.Outlined"
+                      FullWidth="true" />
+        <MudTextField @bind-Value="_email"
+                      Label="Admin email"
+                      Variant="Variant.Outlined"
+                      InputType="InputType.Email"
+                      FullWidth="true" />
+        <MudTextField @bind-Value="_password"
+                      Label="Password"
+                      Variant="Variant.Outlined"
+                      InputType="InputType.Password"
+                      HelperText="At least 10 characters, with upper and lower case, a number, and a symbol."
+                      FullWidth="true" />
+        <MudTextField @bind-Value="_confirmPassword"
+                      Label="Confirm password"
+                      Variant="Variant.Outlined"
+                      InputType="InputType.Password"
+                      FullWidth="true"
+                      OnKeyUp="OnKeyUp" />
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   Disabled="_busy"
+                   OnClick="CreateAsync">
+            Create organization
+        </MudButton>
+    </MudStack>
+}
+
+@code {
+    private string _companyName = string.Empty;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string _confirmPassword = string.Empty;
+    private string? _error;
+    private bool _busy;
+    private bool _ready;
+
+    protected override async Task OnInitializedAsync() {
+        var status = await AuthApi.GetSetupStatusAsync();
+        if (status is not { SetupRequired: true }) {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        _ready = true;
+    }
+
+    private async Task OnKeyUp(KeyboardEventArgs args) {
+        if (args.Key == "Enter") {
+            await CreateAsync();
+        }
+    }
+
+    private async Task CreateAsync() {
+        _error = null;
+        var companyName = _companyName.Trim();
+        var email = _email.Trim();
+        if (companyName.Length == 0 || email.Length == 0 || _password.Length == 0) {
+            _error = "Organization name, email, and password are required.";
+            return;
+        }
+
+        if (!string.Equals(_password, _confirmPassword, StringComparison.Ordinal)) {
+            _error = "Passwords do not match.";
+            return;
+        }
+
+        _busy = true;
+        try {
+            var (user, error) = await AuthApi.CompleteSetupAsync(companyName, email, _password);
+            if (user is null) {
+                _error = error ?? "Setup failed.";
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(user.TenantSubdomain)) {
+                await Js.InvokeVoidAsync(
+                    "sessionStorage.setItem", "tenant_subdomain", user.TenantSubdomain);
+            }
+
+            AuthState.NotifyLoggedIn(user);
+            Navigation.NavigateTo("/", forceLoad: false);
+        } catch (Exception) {
+            _error = "Setup failed.";
+        } finally {
+            _busy = false;
+        }
+    }
+}

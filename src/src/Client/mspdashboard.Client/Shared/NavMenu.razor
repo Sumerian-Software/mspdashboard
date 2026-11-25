@@ -1,0 +1,24 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthApiClient AuthApi
+@inject PortalAuthStateProvider AuthState
+@inject NavigationManager Navigation
+
+<MudNavMenu>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+    <AuthorizeView Roles="TenantAdmin,PlatformAdmin">
+        <MudNavLink Href="/admin/sso" Icon="@Icons.Material.Filled.Security">SSO providers</MudNavLink>
+    </AuthorizeView>
+    <AuthorizeView>
+        <Authorized>
+            <MudNavLink OnClick="LogoutAsync" Icon="@Icons.Material.Filled.Logout">Sign out</MudNavLink>
+        </Authorized>
+    </AuthorizeView>
+</MudNavMenu>
+
+@code {
+    private async Task LogoutAsync() {
+        await AuthApi.LogoutAsync();
+        AuthState.NotifyLoggedOut();
+        Navigation.NavigateTo("/login");
+    }
+}

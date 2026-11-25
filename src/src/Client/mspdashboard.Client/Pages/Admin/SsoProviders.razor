@@ -1,0 +1,126 @@
+@page "/admin/sso"
+@attribute [Authorize(Roles = "TenantAdmin,PlatformAdmin")]
+@using System.Net.Http.Json
+@using mspdashboard.Shared
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<PageTitle>SSO providers</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">SSO providers</MudText>
+<MudText Class="mb-4">Configure Microsoft Entra ID, Google, or a generic OIDC provider for this tenant.</MudText>
+
+@if (_loading) {
+    <MudProgressLinear Indeterminate="true" />
+} else {
+    <MudTable Items="_providers" Hover="true" Dense="true" Class="mb-6">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Type</MudTh>
+            <MudTh>Authority</MudTh>
+            <MudTh>Enabled</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.DisplayName</MudTd>
+            <MudTd>@context.ProviderType</MudTd>
+            <MudTd>@context.Authority</MudTd>
+            <MudTd>@context.IsEnabled</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                               OnClick="@(() => DeleteAsync(context.Id))" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+
+    <MudText Typo="Typo.h6" Class="mb-3">Add provider</MudText>
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudSelect T="SsoProviderType" @bind-Value="_form.ProviderType" Label="Type" Variant="Variant.Outlined" Class="mb-3">
+                <MudSelectItem Value="SsoProviderType.MicrosoftEntra">Microsoft Entra ID</MudSelectItem>
+                <MudSelectItem Value="SsoProviderType.Google">Google</MudSelectItem>
+                <MudSelectItem Value="SsoProviderType.GenericOidc">Generic OIDC</MudSelectItem>
+            </MudSelect>
+            <MudTextField @bind-Value="_form.DisplayName" Label="Display name" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_form.Authority" Label="Authority / issuer" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_form.ClientId" Label="Client ID" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_form.ClientSecret" Label="Client secret" Variant="Variant.Outlined"
+                          InputType="InputType.Password" Class="mb-3" />
+            <MudTextField @bind-Value="_form.Scopes" Label="Scopes" Variant="Variant.Outlined" Class="mb-3" />
+            <MudSwitch @bind-Value="_form.IsEnabled" Label="Enabled" Color="Color.Primary" Class="mb-3" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateAsync" Disabled="_saving">
+                Save provider
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private List<SsoProviderAdminDto> _providers = new();
+    private CreateForm _form = CreateForm.Default();
+
+    protected override async Task OnInitializedAsync() {
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync() {
+        _loading = true;
+        try {
+            _providers = await Http.GetFromJsonAsync<List<SsoProviderAdminDto>>("api/admin/sso-providers") ?? new();
+        } catch {
+            Snackbar.Add("Could not load SSO providers. Ensure you are signed in as a tenant admin.", Severity.Error);
+            _providers = new();
+        } finally {
+            _loading = false;
+        }
+    }
+
+    private async Task CreateAsync() {
+        _saving = true;
+        try {
+            var response = await Http.PostAsJsonAsync("api/admin/sso-providers", _form);
+            if (!response.IsSuccessStatusCode) {
+                Snackbar.Add(await response.Content.ReadAsStringAsync(), Severity.Error);
+                return;
+            }
+
+            _form = CreateForm.Default();
+            Snackbar.Add("SSO provider saved.", Severity.Success);
+            await ReloadAsync();
+        } finally {
+            _saving = false;
+        }
+    }
+
+    private async Task DeleteAsync(Guid id) {
+        var response = await Http.DeleteAsync($"api/admin/sso-providers/{id}");
+        if (!response.IsSuccessStatusCode) {
+            Snackbar.Add("Delete failed.", Severity.Error);
+            return;
+        }
+
+        await ReloadAsync();
+    }
+
+    private sealed class SsoProviderAdminDto {
+        public Guid Id { get; set; }
+        public SsoProviderType ProviderType { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
+        public string Authority { get; set; } = string.Empty;
+        public bool IsEnabled { get; set; }
+    }
+
+    private sealed class CreateForm {
+        public SsoProviderType ProviderType { get; set; } = SsoProviderType.MicrosoftEntra;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Authority { get; set; } = string.Empty;
+        public string ClientId { get; set; } = string.Empty;
+        public string ClientSecret { get; set; } = string.Empty;
+        public string Scopes { get; set; } = "openid profile email";
+        public bool IsEnabled { get; set; } = true;
+
+        public static CreateForm Default() => new();
+    }
+}

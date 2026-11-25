@@ -1,0 +1,28 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Client/">
+    <Project Path="src/Client/mspdashboard.Client/mspdashboard.Client.csproj" />
+  </Folder>
+  <Folder Name="/src/Host/">
+    <Project Path="src/Host/mspdashboard.Host/mspdashboard.Host.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Core/">
+    <Project Path="src/Modules/Core/mspdashboard.Core.Contracts/mspdashboard.Core.Contracts.csproj" />
+    <Project Path="src/Modules/Core/mspdashboard.Core/mspdashboard.Core.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/mspdashboard.Identity/mspdashboard.Identity.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/mspdashboard.Shared/mspdashboard.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/mspdashboard.Host.Tests/mspdashboard.Host.Tests.csproj" />
+  </Folder>
+</Solution>

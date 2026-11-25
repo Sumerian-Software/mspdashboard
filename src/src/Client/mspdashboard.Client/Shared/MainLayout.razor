@@ -1,0 +1,54 @@
+@inherits LayoutComponentBase
+@inject AuthApiClient AuthApi
+@inject PortalAuthStateProvider AuthState
+@inject NavigationManager Navigation
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" 
+                       OnClick="@((e) => DrawerToggle())" />
+        <MudText Typo="Typo.h5" Class="ml-3">MSP Dashboard</MudText>
+        <MudSpacer />
+        <MudButton Href="https://github.com/Sumerian-Software/mspdashboard"
+                   Target="_blank"
+                   Variant="Variant.Text"
+                   Color="Color.Inherit">Source</MudButton>
+        <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" />
+        <MudMenu Icon="@Icons.Material.Filled.AccountCircle"
+                 Color="Color.Inherit"
+                 AnchorOrigin="Origin.BottomRight"
+                 TransformOrigin="Origin.TopRight"
+                 AriaLabel="Account">
+            <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="LogoutAsync">
+                Sign out
+            </MudMenuItem>
+        </MudMenu>
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+        <NavMenu />
+    </MudDrawer>
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4 pt-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private void DrawerToggle() {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private async Task LogoutAsync() {
+        await AuthApi.LogoutAsync();
+        AuthState.NotifyLoggedOut();
+        Navigation.NavigateTo("/login");
+    }
+}

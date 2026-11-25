@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>7f3c9a2e-4b18-4d6e-9c51-0a8e2b7d4f16</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="mspdashboard.Host.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.15" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.15" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.15" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.15" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.1" />
+    <PackageReference Include="WolverineFx" Version="6.64.0" />
+    <PackageReference Include="WolverineFx.EntityFrameworkCore" Version="6.64.0" />
+    <PackageReference Include="WolverineFx.Http" Version="6.64.0" />
+    <PackageReference Include="WolverineFx.Postgresql" Version="6.64.0" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.64.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Client\mspdashboard.Client\mspdashboard.Client.csproj" />
+    <ProjectReference Include="..\..\Shared\mspdashboard.Shared\mspdashboard.Shared.csproj" />
+    <ProjectReference Include="..\..\Modules\Core\mspdashboard.Core\mspdashboard.Core.csproj" />
+    <ProjectReference Include="..\..\Modules\Core\mspdashboard.Core.Contracts\mspdashboard.Core.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\mspdashboard.Identity\mspdashboard.Identity.csproj" />
+  </ItemGroup>
+
+</Project>

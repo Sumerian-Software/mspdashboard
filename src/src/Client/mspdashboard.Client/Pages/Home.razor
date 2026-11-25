@@ -1,0 +1,16 @@
+@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<AuthorizeView>
+    <Authorized>
+        <PageTitle>Dashboard - MSP Dashboard</PageTitle>
+        <MudText Typo="Typo.h3" GutterBottom="true">Dashboard</MudText>
+        <MudText Class="mb-4">Signed in as @context.User.Identity?.Name</MudText>
+        <MudText>No integrations are connected yet.</MudText>
+    </Authorized>
+    <NotAuthorized>
+        <RedirectToLogin />
+    </NotAuthorized>
+</AuthorizeView>

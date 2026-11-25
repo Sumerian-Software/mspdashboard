@@ -1,0 +1,10 @@
+# Self-host overlay. Use with the base compose file:
+#   export JWT_SECRET="$(openssl rand -base64 32)"
+#   docker compose -f src/docker-compose.yml -f src/docker-compose.selfhost.yml up -d --build
+# First visit opens setup and creates one organization. No demo user is seeded.
+services:
+  host:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Setup__AllowFirstRun: "true"
+      JwtSettings__Secret: ${JWT_SECRET:?Set JWT_SECRET to a random string of at least 32 characters}
