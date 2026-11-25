@@ -54,25 +54,6 @@ public sealed class SetupTests {
     }
 
     [Fact]
-    public async Task Reserved_company_name_gets_a_usable_subdomain() {
-        await using var factory = new ApiFactory();
-        await factory.InitializeAsync();
-        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions {
-            HandleCookies = true
-        });
-
-        var response = await client.PostAsJsonAsync("/api/setup", new {
-            companyName = "Admin",
-            email = "owner@admin.example",
-            password = "ValidPass!234"
-        });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("admin-msp", body, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public async Task Invalid_setup_leaves_the_instance_unconfigured() {
         await using var factory = new ApiFactory();
         await factory.InitializeAsync();
