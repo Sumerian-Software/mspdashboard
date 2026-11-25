@@ -405,8 +405,7 @@ $RECYCLE.BIN/
 .env.*.local
 *.env
 
-# Application settings
-appsettings.Development.json
+# Machine-specific application settings (Development defaults are committed)
 appsettings.Local.json
 
 # Database files

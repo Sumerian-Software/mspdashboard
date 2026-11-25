@@ -157,7 +157,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime 
             ["Authentication:Schemes:Bearer:SigningKeys:0:Issuer"] = TestTokens.DevJwtIssuer,
             ["Authentication:Schemes:Bearer:SigningKeys:0:Value"] =
                 Convert.ToBase64String(TestTokens.DevJwtKeyMaterial),
-            ["Authentication:Schemes:Bearer:SigningKeys:0:Length"] = "32"
+            ["Authentication:Schemes:Bearer:SigningKeys:0:Length"] = "32",
+            ["Setup:AllowFirstRun"] = "true"
         };
     }
 

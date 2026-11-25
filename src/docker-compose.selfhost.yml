@@ -2,9 +2,12 @@
 #   export JWT_SECRET="$(openssl rand -base64 32)"
 #   docker compose -f src/docker-compose.yml -f src/docker-compose.selfhost.yml up -d --build
 # First visit opens setup and creates one organization. No demo user is seeded.
+# Setup__AllowFirstRun is enabled for that initial setup. After the organization
+# is created, remove it (or set it to "false") and recreate the host service.
 services:
   host:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      # Required for the first organization. Remove this after setup completes.
       Setup__AllowFirstRun: "true"
       JwtSettings__Secret: ${JWT_SECRET:?Set JWT_SECRET to a random string of at least 32 characters}
