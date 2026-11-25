@@ -26,10 +26,7 @@ public sealed class PortalAuthService : IPortalAuthService {
     }
 
     public async Task<AuthAttemptResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken) {
-        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password)) {
-            return new AuthAttemptResult(false, false, true, "Email and password are required.", null);
-        }
-
+        // Required fields are checked by LoginRequestValidator before this runs.
         var email = request.Email.Trim();
         Guid? tenantId = _tenantContext.TenantId;
         string? tenantSubdomain = _tenantContext.Subdomain;

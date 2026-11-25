@@ -11,7 +11,9 @@ using mspdashboard.Identity.Features.Tenants;
 using mspdashboard.Identity.Infrastructure;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
+using Wolverine.FluentValidation;
 using Wolverine.Http;
+using Wolverine.Http.FluentValidation;
 using Wolverine.Postgresql;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -55,6 +57,9 @@ builder.Host.UseWolverine(opts => {
     opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
     opts.Policies.AutoApplyTransactions();
     opts.UseEntityFrameworkCoreTransactions();
+
+    // Discovers the AbstractValidator<T> classes in the included assemblies.
+    opts.UseFluentValidation();
 
     if (string.IsNullOrWhiteSpace(postgres)) {
         return;
@@ -113,7 +118,10 @@ app.UseAuthentication();
 app.UseMiddleware<ClaimTenantResolutionMiddleware>();
 app.UseAuthorization();
 
-app.MapWolverineEndpoints();
+app.MapWolverineEndpoints(opts => {
+    // Validates request bodies with FluentValidation and returns ProblemDetails 400 on failure.
+    opts.UseFluentValidationProblemDetailMiddleware();
+});
 app.MapFallbackToFile("index.html");
 
 app.Run();

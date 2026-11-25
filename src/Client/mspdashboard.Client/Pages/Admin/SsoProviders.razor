@@ -82,7 +82,7 @@
         try {
             var response = await Http.PostAsJsonAsync("api/admin/sso-providers", _form);
             if (!response.IsSuccessStatusCode) {
-                Snackbar.Add(await response.Content.ReadAsStringAsync(), Severity.Error);
+                Snackbar.Add(await ProblemDetailsReader.ReadMessageAsync(response, "Could not save the SSO provider."), Severity.Error);
                 return;
             }
 
