@@ -17,6 +17,12 @@ public sealed record SsoProviderPublicDto(
 
 public sealed record LoginRequest(string Email, string Password, string? TenantSubdomain);
 
+/// <summary>
+/// Optional body for POST /api/auth/token. Omit email/password to exchange a cookie session;
+/// supply both to authenticate with credentials (no cookie is created).
+/// </summary>
+public sealed record IssueTokenRequest(string? Email, string? Password, string? TenantSubdomain);
+
 public sealed record AuthUserResponse(
     Guid Id,
     string Email,
@@ -27,3 +33,9 @@ public sealed record AuthUserResponse(
     IReadOnlyList<string> Roles);
 
 public sealed record LoginResponse(AuthUserResponse User);
+
+public sealed record AccessTokenResponse(
+    string AccessToken,
+    string TokenType,
+    int ExpiresIn,
+    DateTimeOffset ExpiresAt);

@@ -161,6 +161,7 @@ public class ClaimTenantResolutionMiddleware {
 
         if (value.Equals("/api/auth/login", StringComparison.OrdinalIgnoreCase) ||
             value.Equals("/api/auth/logout", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("/api/auth/token", StringComparison.OrdinalIgnoreCase) ||
             value.Equals("/api/auth/resolve-tenant", StringComparison.OrdinalIgnoreCase) ||
             value.Equals("/api/setup", StringComparison.OrdinalIgnoreCase) ||
             value.Equals("/api/setup/status", StringComparison.OrdinalIgnoreCase)) {

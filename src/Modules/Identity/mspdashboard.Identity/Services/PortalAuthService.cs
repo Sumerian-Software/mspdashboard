@@ -26,7 +26,48 @@ public sealed class PortalAuthService : IPortalAuthService {
     }
 
     public async Task<AuthAttemptResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken) {
-        // Required fields are checked by LoginRequestValidator before this runs.
+        var authenticated = await TryAuthenticateAsync(request, cancellationToken);
+        if (!authenticated.Result.Succeeded || authenticated.User is null) {
+            return authenticated.Result;
+        }
+
+        var claims = BuildTenantClaims(authenticated.User, authenticated.TenantSubdomain);
+        await _signInManager.SignInWithClaimsAsync(authenticated.User, isPersistent: true, claims);
+        return authenticated.Result;
+    }
+
+    public async Task<AuthAttemptResult> AuthenticateCredentialsAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken) {
+        var authenticated = await TryAuthenticateAsync(request, cancellationToken);
+        return authenticated.Result;
+    }
+
+    public Task LogoutAsync() {
+        return _signInManager.SignOutAsync();
+    }
+
+    public async Task<AuthUserResponse?> GetCurrentUserAsync(ClaimsPrincipal principal) {
+        var user = await _userManager.GetUserAsync(principal);
+        if (user is null || !user.IsActive) {
+            return null;
+        }
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var subdomain = principal.FindFirstValue("tenant_subdomain");
+        return new AuthUserResponse(
+            user.Id,
+            user.Email ?? string.Empty,
+            user.TenantId,
+            subdomain,
+            user.FirstName,
+            user.LastName,
+            roles.ToList());
+    }
+
+    private async Task<(AuthAttemptResult Result, ApplicationUser? User, string? TenantSubdomain)>
+        TryAuthenticateAsync(LoginRequest request, CancellationToken cancellationToken) {
+        // Required fields are checked by LoginRequestValidator / IssueTokenRequestValidator before this runs.
         var email = request.Email.Trim();
         Guid? tenantId = _tenantContext.TenantId;
         string? tenantSubdomain = _tenantContext.Subdomain;
@@ -36,7 +77,7 @@ public sealed class PortalAuthService : IPortalAuthService {
             var tenant = await _db.Tenants.AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Subdomain == subdomain && t.IsActive, cancellationToken);
             if (tenant is null) {
-                return new AuthAttemptResult(false, false, false, null, null);
+                return Fail();
             }
 
             tenantId = tenant.Id;
@@ -63,7 +104,7 @@ public sealed class PortalAuthService : IPortalAuthService {
         }
 
         if (!tenantId.HasValue) {
-            return new AuthAttemptResult(false, false, false, null, null);
+            return Fail();
         }
 
         var user = await _userManager.Users
@@ -71,55 +112,38 @@ public sealed class PortalAuthService : IPortalAuthService {
                 && u.TenantId == tenantId.Value, cancellationToken);
 
         if (user is null || !user.IsActive) {
-            return new AuthAttemptResult(false, false, false, null, null);
+            return Fail();
         }
 
         var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
         if (result.IsLockedOut) {
-            return new AuthAttemptResult(false, true, false, "Account locked. Try again later.", null);
+            return (new AuthAttemptResult(false, true, false, "Account locked. Try again later.", null), null, null);
         }
 
         if (!result.Succeeded) {
-            return new AuthAttemptResult(false, false, false, null, null);
+            return Fail();
         }
 
         var roles = await _userManager.GetRolesAsync(user);
-        var claims = new List<Claim> {
-            new("tenant_id", user.TenantId.ToString()),
-            new("tenant_subdomain", tenantSubdomain ?? string.Empty)
-        };
-
-        await _signInManager.SignInWithClaimsAsync(user, isPersistent: true, claims);
-
-        return new AuthAttemptResult(true, false, false, null, new AuthUserResponse(
+        var response = new AuthUserResponse(
             user.Id,
             user.Email ?? email,
             user.TenantId,
             tenantSubdomain,
             user.FirstName,
             user.LastName,
-            roles.ToList()));
-    }
-
-    public Task LogoutAsync() {
-        return _signInManager.SignOutAsync();
-    }
-
-    public async Task<AuthUserResponse?> GetCurrentUserAsync(ClaimsPrincipal principal) {
-        var user = await _userManager.GetUserAsync(principal);
-        if (user is null || !user.IsActive) {
-            return null;
-        }
-
-        var roles = await _userManager.GetRolesAsync(user);
-        var subdomain = principal.FindFirstValue("tenant_subdomain");
-        return new AuthUserResponse(
-            user.Id,
-            user.Email ?? string.Empty,
-            user.TenantId,
-            subdomain,
-            user.FirstName,
-            user.LastName,
             roles.ToList());
+        return (new AuthAttemptResult(true, false, false, null, response), user, tenantSubdomain);
+    }
+
+    private static List<Claim> BuildTenantClaims(ApplicationUser user, string? tenantSubdomain) {
+        return [
+            new("tenant_id", user.TenantId.ToString()),
+            new("tenant_subdomain", tenantSubdomain ?? string.Empty)
+        ];
+    }
+
+    private static (AuthAttemptResult Result, ApplicationUser? User, string? TenantSubdomain) Fail() {
+        return (new AuthAttemptResult(false, false, false, null, null), null, null);
     }
 }
