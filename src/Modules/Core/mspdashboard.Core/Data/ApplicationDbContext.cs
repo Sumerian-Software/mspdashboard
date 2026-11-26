@@ -17,6 +17,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<TenantEmailDomain> TenantEmailDomains => Set<TenantEmailDomain>();
     public DbSet<TenantSsoProvider> TenantSsoProviders => Set<TenantSsoProvider>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) {
         base.OnModelCreating(modelBuilder);
@@ -45,6 +46,21 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
             entity.Property(e => e.ClientSecretProtected).HasMaxLength(2000).IsRequired();
             entity.Property(e => e.Scopes).HasMaxLength(500).IsRequired();
             entity.HasIndex(e => new { e.TenantId, e.DisplayName });
+            entity.HasQueryFilter(e =>
+                !_tenantContext.TenantId.HasValue || e.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<ApiKey>(entity => {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Prefix).HasMaxLength(32).IsRequired();
+            entity.Property(e => e.SecretHash).HasMaxLength(32).IsRequired();
+            entity.HasIndex(e => e.Prefix).IsUnique();
+            entity.HasIndex(e => new { e.TenantId, e.UserId });
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
             entity.HasQueryFilter(e =>
                 !_tenantContext.TenantId.HasValue || e.TenantId == _tenantContext.TenantId);
         });
