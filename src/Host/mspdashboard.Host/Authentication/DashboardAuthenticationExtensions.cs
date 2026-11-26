@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using mspdashboard.Identity;
+using mspdashboard.Identity.Services;
 
 namespace mspdashboard.Host.Authentication;
 
@@ -89,6 +90,8 @@ public static class DashboardAuthenticationExtensions {
         builder.Services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IPostConfigureOptions<OpenIdConnectOptions>, OpenIdConnectPostConfigureOptions>());
         builder.Services.AddSingleton<DynamicOidcSchemeManager>();
+        builder.Services.AddSingleton<ISsoOidcSchemeInvalidator>(sp =>
+            sp.GetRequiredService<DynamicOidcSchemeManager>());
 
         builder.Services.AddAuthorization(options => {
             options.AddPolicy(AuthorizationPolicies.PlatformAdmin, policy => {

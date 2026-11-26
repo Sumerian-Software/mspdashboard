@@ -6,10 +6,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using mspdashboard.Core.Data;
 using mspdashboard.Identity.Security;
+using mspdashboard.Identity.Services;
 
 namespace mspdashboard.Host.Authentication;
 
-public sealed class DynamicOidcSchemeManager {
+public sealed class DynamicOidcSchemeManager : ISsoOidcSchemeInvalidator {
     private readonly IAuthenticationSchemeProvider _schemeProvider;
     private readonly IOptionsMonitorCache<OpenIdConnectOptions> _optionsCache;
     private readonly IEnumerable<IPostConfigureOptions<OpenIdConnectOptions>> _postConfigures;
@@ -28,16 +29,20 @@ public sealed class DynamicOidcSchemeManager {
         _scopeFactory = scopeFactory;
     }
 
-    public async Task EnsureSchemeAsync(Guid providerId, CancellationToken cancellationToken = default) {
+    /// <summary>
+    /// Registers (or confirms) the OIDC scheme for an enabled provider.
+    /// Returns false when the provider is missing or disabled.
+    /// </summary>
+    public async Task<bool> EnsureSchemeAsync(Guid providerId, CancellationToken cancellationToken = default) {
         var scheme = SsoSchemeNames.ForProvider(providerId);
         if (_registered.ContainsKey(scheme) && await _schemeProvider.GetSchemeAsync(scheme) is not null) {
-            return;
+            return true;
         }
 
         await _gate.WaitAsync(cancellationToken);
         try {
             if (_registered.ContainsKey(scheme) && await _schemeProvider.GetSchemeAsync(scheme) is not null) {
-                return;
+                return true;
             }
 
             await using var scope = _scopeFactory.CreateAsyncScope();
@@ -48,7 +53,7 @@ public sealed class DynamicOidcSchemeManager {
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(p => p.Id == providerId && p.IsEnabled, cancellationToken);
             if (provider is null) {
-                throw new InvalidOperationException("SSO provider was not found or is disabled.");
+                return false;
             }
 
             var clientSecret = protector.Unprotect(provider.ClientSecretProtected);
@@ -84,14 +89,24 @@ public sealed class DynamicOidcSchemeManager {
             }
 
             _registered[scheme] = 0;
+            return true;
         } finally {
             _gate.Release();
         }
     }
 
     public void Invalidate(Guid providerId) {
-        var scheme = SsoSchemeNames.ForProvider(providerId);
-        _optionsCache.TryRemove(scheme);
-        _registered.TryRemove(scheme, out _);
+        // Remove the scheme as well as cached options. Leaving a registered
+        // OpenIdConnectHandler without options causes the auth middleware to rebuild
+        // empty defaults and can fail every request that probes IAuthenticationRequestHandler.
+        _gate.Wait();
+        try {
+            var scheme = SsoSchemeNames.ForProvider(providerId);
+            _optionsCache.TryRemove(scheme);
+            _schemeProvider.RemoveScheme(scheme);
+            _registered.TryRemove(scheme, out _);
+        } finally {
+            _gate.Release();
+        }
     }
 }
