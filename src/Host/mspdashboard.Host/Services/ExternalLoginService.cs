@@ -27,6 +27,17 @@ public sealed class ExternalLoginService : IExternalLoginService {
             return "/login?error=sso";
         }
 
+        if (result.Properties?.Items.TryGetValue("providerId", out var providerValue) == true &&
+            Guid.TryParseExact(providerValue, "N", out var providerId)) {
+            var providerEnabled = await _db.TenantSsoProviders.AsNoTracking()
+                .IgnoreQueryFilters()
+                .AnyAsync(p => p.Id == providerId && p.IsEnabled);
+            if (!providerEnabled) {
+                await httpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+                return "/login?error=sso";
+            }
+        }
+
         var external = result.Principal;
         var email = external.FindFirstValue(ClaimTypes.Email)
             ?? external.FindFirstValue("email")

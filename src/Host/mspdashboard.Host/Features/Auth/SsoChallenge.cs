@@ -25,7 +25,9 @@ public static class SsoChallengeHandler {
             return Results.NotFound(new { error = "SSO provider not found." });
         }
 
-        await schemeManager.EnsureSchemeAsync(providerId, cancellationToken);
+        if (!await schemeManager.EnsureSchemeAsync(providerId, cancellationToken)) {
+            return Results.NotFound(new { error = "SSO provider not found." });
+        }
 
         var safeReturn = string.IsNullOrWhiteSpace(returnUrl) || !returnUrl.StartsWith('/')
             ? "/"

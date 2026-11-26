@@ -10,14 +10,17 @@ public sealed class SsoAdminService : ISsoAdminService {
     private readonly ApplicationDbContext _db;
     private readonly ITenantContextAccessor _tenantAccessor;
     private readonly SsoSecretProtector _secretProtector;
+    private readonly ISsoOidcSchemeInvalidator _schemeInvalidator;
 
     public SsoAdminService(
         ApplicationDbContext db,
         ITenantContextAccessor tenantAccessor,
-        SsoSecretProtector secretProtector) {
+        SsoSecretProtector secretProtector,
+        ISsoOidcSchemeInvalidator schemeInvalidator) {
         _db = db;
         _tenantAccessor = tenantAccessor;
         _secretProtector = secretProtector;
+        _schemeInvalidator = schemeInvalidator;
     }
 
     public bool HasTenantContext => _tenantAccessor.EnsureResolved();
@@ -80,6 +83,7 @@ public sealed class SsoAdminService : ISsoAdminService {
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+        _schemeInvalidator.Invalidate(id);
         return ToDto(entity);
     }
 
@@ -93,6 +97,7 @@ public sealed class SsoAdminService : ISsoAdminService {
 
         _db.TenantSsoProviders.Remove(entity);
         await _db.SaveChangesAsync(cancellationToken);
+        _schemeInvalidator.Invalidate(id);
         return true;
     }
 

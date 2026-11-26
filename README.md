@@ -2,7 +2,7 @@
 
 A multi-tenant dashboard for managed service providers. Product site: [mspdashboard.io](https://mspdashboard.io).
 
-See [TESTING.md](TESTING.md) for how we test critical paths and reported issues, and how to run the suite.
+See [TESTING.md](TESTING.md) for how we test critical paths and reported issues, and how to run the suite. See [docs/sso.md](docs/sso.md) for per-tenant SSO provider setup, login selection, and IdP redirect URIs.
 
 The app is built on .NET 10 with:
 

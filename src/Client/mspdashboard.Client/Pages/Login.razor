@@ -58,7 +58,19 @@
             Sign in
         </MudButton>
 
-        @if (_tenant.SsoProviders.Count > 0) {
+        @if (_tenant.SsoProviders.Count == 1) {
+            <MudDivider />
+            <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary">
+                or continue with
+            </MudText>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       Href="@AuthApi.SsoChallengeUrl(_tenant.SsoProviders[0].Id)"
+                       Target="_self">
+                Continue with @_tenant.SsoProviders[0].DisplayName
+            </MudButton>
+        } else if (_tenant.SsoProviders.Count > 1) {
             <MudDivider />
             <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary">
                 or continue with
