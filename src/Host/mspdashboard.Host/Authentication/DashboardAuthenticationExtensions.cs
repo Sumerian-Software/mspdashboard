@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -24,7 +25,8 @@ public static class DashboardAuthenticationExtensions {
                 Type = SecuritySchemeType.Http,
                 Scheme = "bearer",
                 BearerFormat = "JWT",
-                Description = "JWT Authorization header using the Bearer scheme."
+                Description =
+                    "JWT from POST /api/auth/token. Paste the access token (Swagger adds the Bearer prefix)."
             });
             options.AddSecurityRequirement(document => new OpenApiSecurityRequirement {
                 [new OpenApiSecuritySchemeReference("Bearer", document)] = []
@@ -41,6 +43,21 @@ public static class DashboardAuthenticationExtensions {
         var signingKey = ResolveSigningKey(
             builder.Environment.IsDevelopment(),
             configuration["JwtSettings:Secret"]);
+        var expirationMinutes = configuration.GetValue(
+            "JwtSettings:ExpirationMinutes",
+            JwtTokenOptions.DefaultExpirationMinutes);
+        if (expirationMinutes <= 0) {
+            expirationMinutes = JwtTokenOptions.DefaultExpirationMinutes;
+        }
+
+        // Singleton options shared by JwtBearer validation and IJwtAccessTokenIssuer.
+        builder.Services.AddSingleton<IOptions<JwtTokenOptions>>(Options.Create(new JwtTokenOptions {
+            Issuer = issuer,
+            Audience = audience,
+            SigningKey = signingKey,
+            ExpirationMinutes = expirationMinutes
+        }));
+        builder.Services.AddSingleton<IJwtAccessTokenIssuer, JwtAccessTokenIssuer>();
 
         builder.Services.AddAuthentication(options => {
                 options.DefaultScheme = SmartScheme;

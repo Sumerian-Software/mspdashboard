@@ -86,4 +86,35 @@ Outside Development, `JwtSettings:Secret` is required or the app will not start.
 openssl rand -base64 32
 ```
 
-The self-host compose file reads this from `JWT_SECRET`.
+The self-host compose file reads this from `JWT_SECRET`. The same secret signs API tokens (below) and validates `Authorization: Bearer` requests. In Development the host can start without a secret, but token issuance then returns 503 until one is set.
+
+## API tokens
+
+The Blazor client keeps using httpOnly cookies. For scripts and integrations, issue a short-lived JWT from `POST /api/auth/token` (no refresh tokens — call the endpoint again when it expires; lifetime is `JwtSettings:ExpirationMinutes`, default 15).
+
+With email and password (and optional tenant subdomain in the body or via `X-Tenant-Subdomain`):
+
+```bash
+curl -s -X POST http://localhost:5000/api/auth/token \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-Subdomain: demo" \
+  -d '{"email":"admin@demo.local","password":"DevAdmin!234","tenantSubdomain":"demo"}'
+```
+
+Or exchange an existing browser cookie session (no body required; do not send `Authorization: Bearer`):
+
+```bash
+curl -s -X POST http://localhost:5000/api/auth/token \
+  -H "Content-Type: application/json" \
+  --cookie "mspdashboard.auth=..."
+```
+
+Use the token:
+
+```bash
+curl -s http://localhost:5000/api/auth/me \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "X-Tenant-Subdomain: demo"
+```
+
+The token carries `tenant_id` / `tenant_subdomain` claims, so it only works for that tenant (a mismatched `X-Tenant-Subdomain` returns 403). Bearer requests cannot mint a new token; use credentials or a cookie session instead.
