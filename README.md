@@ -118,3 +118,47 @@ curl -s http://localhost:5000/api/auth/me \
 ```
 
 The token carries `tenant_id` / `tenant_subdomain` claims, so it only works for that tenant (a mismatched `X-Tenant-Subdomain` returns 403). Bearer requests cannot mint a new token; use credentials or a cookie session instead.
+
+## API keys
+
+Long-lived, per-user, tenant-bound credentials for scripts and integrations. An API key has the same permissions as the user who created it (roles are read live from the database on each request, so role changes apply immediately). Keys are revocable; the plaintext secret is shown only once at creation.
+
+Create a key with a cookie session or bearer token (not with another API key):
+
+```bash
+curl -s -X POST http://localhost:5000/api/auth/api-keys \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "X-Tenant-Subdomain: demo" \
+  -d '{"name":"ci-bot","expiresAt":null}'
+```
+
+The response includes `key` in the form `msp_<prefix>_<secret>` — store it; it is never returned again.
+
+Use the key:
+
+```bash
+curl -s http://localhost:5000/api/auth/me \
+  -H "X-Api-Key: msp_..." \
+  -H "X-Tenant-Subdomain: demo"
+```
+
+`Authorization: ApiKey msp_...` works the same way.
+
+List metadata for the current user's keys (no secrets):
+
+```bash
+curl -s http://localhost:5000/api/auth/api-keys \
+  -H "X-Api-Key: msp_..." \
+  -H "X-Tenant-Subdomain: demo"
+```
+
+Revoke (soft-delete; idempotent):
+
+```bash
+curl -s -X DELETE http://localhost:5000/api/auth/api-keys/<id> \
+  -H "X-Api-Key: msp_..." \
+  -H "X-Tenant-Subdomain: demo"
+```
+
+Notes: a key cannot create other keys (403). Revoked or expired keys, and keys whose user is deactivated, get 401. Using a key against another tenant's host or `X-Tenant-Subdomain` returns 403.

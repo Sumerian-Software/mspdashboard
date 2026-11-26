@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Identity;
@@ -9,6 +10,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using mspdashboard.Identity;
+using mspdashboard.Identity.Security;
 using mspdashboard.Identity.Services;
 
 namespace mspdashboard.Host.Authentication;
@@ -28,6 +30,13 @@ public static class DashboardAuthenticationExtensions {
                 BearerFormat = "JWT",
                 Description =
                     "JWT from POST /api/auth/token. Paste the access token (Swagger adds the Bearer prefix)."
+            });
+            options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme {
+                Type = SecuritySchemeType.ApiKey,
+                In = ParameterLocation.Header,
+                Name = ApiKeyDefaults.HeaderName,
+                Description =
+                    "Long-lived API key from POST /api/auth/api-keys (format msp_<prefix>_<secret>)."
             });
             options.AddSecurityRequirement(document => new OpenApiSecurityRequirement {
                 [new OpenApiSecuritySchemeReference("Bearer", document)] = []
@@ -63,11 +72,17 @@ public static class DashboardAuthenticationExtensions {
         builder.Services.AddAuthentication(options => {
                 options.DefaultScheme = SmartScheme;
                 options.DefaultAuthenticateScheme = SmartScheme;
-                options.DefaultChallengeScheme = IdentityConstants.ApplicationScheme;
+                // Challenge via Smart so X-Api-Key / Bearer requests get the matching scheme's
+                // 401 (not a cookie redirect). No-header requests still forward to the cookie scheme.
+                options.DefaultChallengeScheme = SmartScheme;
                 options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
             })
-            .AddPolicyScheme(SmartScheme, "Cookie or JWT", options => {
+            .AddPolicyScheme(SmartScheme, "Cookie, JWT, or API key", options => {
                 options.ForwardDefaultSelector = context => {
+                    if (HasApiKeyCredential(context.Request)) {
+                        return ApiKeyDefaults.AuthenticationScheme;
+                    }
+
                     var header = context.Request.Headers.Authorization.ToString();
                     if (!string.IsNullOrEmpty(header) &&
                         header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) {
@@ -77,6 +92,9 @@ public static class DashboardAuthenticationExtensions {
                     return IdentityConstants.ApplicationScheme;
                 };
             })
+            .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
+                ApiKeyDefaults.AuthenticationScheme,
+                _ => { })
             .AddJwtBearer(options => {
                 options.MapInboundClaims = true;
                 var parameters = options.TokenValidationParameters;
@@ -147,6 +165,19 @@ public static class DashboardAuthenticationExtensions {
         }
 
         return configuredSecret;
+    }
+
+    private static bool HasApiKeyCredential(HttpRequest request) {
+        if (request.Headers.TryGetValue(ApiKeyDefaults.HeaderName, out var values) &&
+            !string.IsNullOrWhiteSpace(values.ToString())) {
+            return true;
+        }
+
+        var authorization = request.Headers.Authorization.ToString();
+        return !string.IsNullOrEmpty(authorization) &&
+               authorization.StartsWith(
+                   ApiKeyDefaults.AuthorizationScheme + " ",
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     private static void AddValue(TokenValidationParameters parameters, string value, bool audience) {

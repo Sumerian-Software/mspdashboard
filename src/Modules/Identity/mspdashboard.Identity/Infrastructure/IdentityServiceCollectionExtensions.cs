@@ -15,6 +15,7 @@ public static class IdentityServiceCollectionExtensions {
         services.AddSingleton<SsoSecretProtector>();
         services.AddScoped<IPortalAuthService, PortalAuthService>();
         services.AddScoped<ISsoAdminService, SsoAdminService>();
+        services.AddScoped<IApiKeyService, ApiKeyService>();
         services.AddScoped<ISetupService, SetupService>();
         services.AddScoped<ITenantContextAccessor, TenantContextAccessor>();
         services.AddOptions<SetupOptions>().BindConfiguration(SetupOptions.SectionName);
