@@ -1,9 +1,11 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using mspdashboard.Core.Contracts;
 using mspdashboard.Core.Data;
 using mspdashboard.Core.Infrastructure;
+using mspdashboard.Identity;
 
 namespace mspdashboard.Host.Middleware;
 
@@ -97,14 +99,43 @@ public class ClaimTenantResolutionMiddleware {
         ApplicationDbContext dbContext,
         ITenantContext tenantContext,
         IDistributedCache cache) {
+        var pathExempt = IsAuthFlowPath(context.Request.Path);
+
+        if (tenantContext.IsResolved &&
+            !pathExempt &&
+            context.User.Identity?.IsAuthenticated == true &&
+            !TenantClaimMatching.IsExempt(context.User) &&
+            !TenantClaimMatching.ClaimsMatch(
+                context.User,
+                tenantContext.TenantId!.Value,
+                tenantContext.Subdomain!)) {
+            _logger.LogWarning(
+                "Tenant mismatch rejected: resolved {ResolvedTenantId}/{ResolvedSubdomain} does not match claims tenant_id={ClaimTenantId}, tenant_subdomain={ClaimSubdomain}",
+                tenantContext.TenantId,
+                tenantContext.Subdomain,
+                context.User.FindFirstValue(TenantClaimMatching.TenantIdClaimType),
+                context.User.FindFirstValue(TenantClaimMatching.TenantSubdomainClaimType));
+
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(
+                new ProblemDetails {
+                    Title = "Tenant mismatch",
+                    Status = StatusCodes.Status403Forbidden,
+                    Detail = "The authenticated user does not belong to the requested tenant."
+                },
+                options: null,
+                contentType: "application/problem+json");
+            return;
+        }
+
         if (!tenantContext.IsResolved && context.User.Identity?.IsAuthenticated == true) {
-            var subdomain = context.User.FindFirstValue("tenant_subdomain");
+            var subdomain = context.User.FindFirstValue(TenantClaimMatching.TenantSubdomainClaimType);
             if (!string.IsNullOrWhiteSpace(subdomain)) {
                 await TenantResolutionMiddleware.ResolveBySubdomainAsync(
                     subdomain, dbContext, tenantContext, cache, context.RequestAborted);
                 _logger.LogDebug("Resolved tenant from auth claims: {Subdomain}", subdomain);
             } else {
-                var tenantIdValue = context.User.FindFirstValue("tenant_id");
+                var tenantIdValue = context.User.FindFirstValue(TenantClaimMatching.TenantIdClaimType);
                 if (Guid.TryParse(tenantIdValue, out var tenantId)) {
                     var tenant = await dbContext.Tenants.AsNoTracking()
                         .FirstOrDefaultAsync(t => t.Id == tenantId && t.IsActive, context.RequestAborted);
@@ -116,5 +147,26 @@ public class ClaimTenantResolutionMiddleware {
         }
 
         await _next(context);
+    }
+
+    /// <summary>
+    /// Anonymous / auth-flow endpoints that must keep working when a stale or other-tenant cookie
+    /// is present (login, logout, resolve-tenant, SSO, first-run setup). Issue #14.
+    /// </summary>
+    internal static bool IsAuthFlowPath(PathString path) {
+        var value = path.Value;
+        if (string.IsNullOrEmpty(value)) {
+            return false;
+        }
+
+        if (value.Equals("/api/auth/login", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("/api/auth/logout", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("/api/auth/resolve-tenant", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("/api/setup", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("/api/setup/status", StringComparison.OrdinalIgnoreCase)) {
+            return true;
+        }
+
+        return value.StartsWith("/api/auth/sso/", StringComparison.OrdinalIgnoreCase);
     }
 }

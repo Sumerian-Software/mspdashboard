@@ -39,22 +39,32 @@ public sealed class TenantContextAccessor : ITenantContextAccessor {
 
         var header = http.Request.Headers[TenantHeaderNames.Subdomain].FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(header)) {
-            ResolveBySubdomain(header).GetAwaiter().GetResult();
-            if (_tenantContext.IsResolved) {
+            var fromHeader = LookupBySubdomain(header).GetAwaiter().GetResult();
+            if (fromHeader is not null) {
+                // Do not adopt a header tenant that conflicts with the caller's tenant claims (#14).
+                if (!TenantClaimMatching.MatchesResolvedTenant(
+                        http.User,
+                        fromHeader.Value.TenantId,
+                        fromHeader.Value.Subdomain)) {
+                    return false;
+                }
+
+                _tenantContext.SetTenant(fromHeader.Value.TenantId, fromHeader.Value.Subdomain);
                 return true;
             }
         }
 
         if (http.User.Identity?.IsAuthenticated == true) {
-            var subdomain = http.User.FindFirstValue("tenant_subdomain");
+            var subdomain = http.User.FindFirstValue(TenantClaimMatching.TenantSubdomainClaimType);
             if (!string.IsNullOrWhiteSpace(subdomain)) {
-                ResolveBySubdomain(subdomain).GetAwaiter().GetResult();
-                if (_tenantContext.IsResolved) {
+                var fromClaim = LookupBySubdomain(subdomain).GetAwaiter().GetResult();
+                if (fromClaim is not null) {
+                    _tenantContext.SetTenant(fromClaim.Value.TenantId, fromClaim.Value.Subdomain);
                     return true;
                 }
             }
 
-            var tenantIdValue = http.User.FindFirstValue("tenant_id");
+            var tenantIdValue = http.User.FindFirstValue(TenantClaimMatching.TenantIdClaimType);
             if (Guid.TryParse(tenantIdValue, out var tenantId)) {
                 var tenant = _db.Tenants.AsNoTracking()
                     .FirstOrDefault(t => t.Id == tenantId && t.IsActive);
@@ -68,18 +78,19 @@ public sealed class TenantContextAccessor : ITenantContextAccessor {
         return _tenantContext.IsResolved;
     }
 
-    private async Task ResolveBySubdomain(string subdomain) {
+    private async Task<(Guid TenantId, string Subdomain)?> LookupBySubdomain(string subdomain) {
         var cached = await _cache.GetStringAsync(TenantCache.Key(subdomain));
         if (TenantCache.TryRead(cached, out var tenantId, out var cachedSubdomain)) {
-            _tenantContext.SetTenant(tenantId, cachedSubdomain);
-            return;
+            return (tenantId, cachedSubdomain);
         }
 
         var tenant = await _db.Tenants.AsNoTracking()
             .FirstOrDefaultAsync(t => t.Subdomain == subdomain && t.IsActive);
         if (tenant is not null) {
-            _tenantContext.SetTenant(tenant.Id, tenant.Subdomain);
             await TenantCache.SetAsync(_cache, tenant.Id, tenant.Subdomain, CancellationToken.None);
+            return (tenant.Id, tenant.Subdomain);
         }
+
+        return null;
     }
 }
